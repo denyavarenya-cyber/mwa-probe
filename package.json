@@ -1,0 +1,28 @@
+{
+  "name": "mwa-probe",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "@solana-mobile/mobile-wallet-adapter-protocol": "^2.3.0",
+    "@solana-mobile/mobile-wallet-adapter-protocol-web3js": "^2.3.0",
+    "@solana/web3.js": "^1.98.4",
+    "buffer": "^6.0.3",
+    "expo": "~54.0.36",
+    "expo-status-bar": "~3.0.9",
+    "js-base64": "^3.9.3",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-get-random-values": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.0",
+    "typescript": "~5.9.2"
+  },
+  "private": true
+}
