@@ -1,75 +1,85 @@
 # friction.md — MWA Probe (Expo SDK 54 / RN 0.81.5 / Android)
 
-Формат запису:
+Entry format:
 
 ```
-## <Крок>
-- Очікував:
-- Отримав:
-- Версії:
-- Час:
-- Джерело:
+## <Step>
+- Expected:
+- Actual:
+- Versions:
+- Time:
+- Source:
 ```
 
-Оточення: Windows 11, Node 24.13.0, JDK 17 (Temurin 17.0.20.1), Expo SDK 54,
-RN 0.81.5, емулятор Pixel_7 API 35 (Google APIs), Gradle 9.7.0 (у клоні MWA).
+Environment: Windows 11, Node 24.13.0, JDK 17 (Temurin 17.0.20.1), Expo SDK 54,
+RN 0.81.5, Pixel_7 emulator API 35 (Google APIs), Gradle 9.7.0 (in the MWA clone).
 
 ---
 
-## Збірка fakewallet (.\gradlew :fakewallet:installLegacyDebug)
-- Статус: ✅ вирішено 2026-08-30. BUILD SUCCESSFUL (5с, 75/76 задач up-to-date —
-  основну компіляцію зробив попередній прогін), пакет
-  `com.solana.mobilewalletadapter.fakewallet` встановлено на emulator-5554.
-- Примітка: fakewallet вимагає compileSdk 37 та Gradle 9.7.0 → JDK 17+ обов'язковий.
+## Building fakewallet (.\gradlew :fakewallet:installLegacyDebug)
+- Step: `.\gradlew :fakewallet:installDebug` as a first attempt.
+- Expected: the debug build to install on the running emulator.
+- Actual: `Cannot locate tasks that match ':fakewallet:installDebug' as task
+  'installDebug' is ambiguous in project ':fakewallet'. Candidates are:
+  'installLegacyDebug', 'installLegacyDebugAndroidTest'.` Using
+  `installLegacyDebug` succeeded: BUILD SUCCESSFUL (5s, 75/76 tasks up-to-date —
+  the actual compilation happened on an earlier run), package
+  `com.solana.mobilewalletadapter.fakewallet` installed on emulator-5554.
+- Note: fakewallet requires compileSdk 37 and Gradle 9.7.0, so JDK 17+ is mandatory.
+- Versions: mobile-wallet-adapter @ HEAD 2026-08-30, Gradle 9.7.0, JDK 17.0.20.1.
+- Time: 2026-08-30.
 
-## Перший getBalance після authorize — TypeError: Network request failed
-- Крок: Connect → authorize у fakewallet → `new Connection(clusterApiUrl('devnet'))`
-  → `getBalance(pk)` одразу після повернення з активності гаманця.
-- Очікував: баланс акаунта з devnet RPC.
-- Отримав: `failed to get balance of account …: TypeError: Network request failed`.
-  Відтворилось двічі поспіль (15:45 і 15:46). При цьому мережа емулятора жива:
-  ping 8.8.8.8 і api.devnet.solana.com із shell проходив (RTT ~410–450 мс),
-  а діагностичний чистий `fetch` із самого застосунку повернув
+## First getBalance after authorize — TypeError: Network request failed
+- Step: Connect → authorize in fakewallet → `new Connection(clusterApiUrl('devnet'))`
+  → `getBalance(pk)` immediately after returning from the wallet activity.
+- Expected: the account balance from the devnet RPC.
+- Actual: `failed to get balance of account …: TypeError: Network request failed`.
+  Reproduced twice in a row (15:45 and 15:46). Emulator networking was fine:
+  ping to 8.8.8.8 and api.devnet.solana.com from the shell worked (RTT ~410–450 ms),
+  and a plain diagnostic `fetch` from inside the app returned
   google 204 / devnet GET /health 200 / devnet POST getVersion 200.
-  Після цього «прогріву» той самий Connect+getBalance пройшов успішно
-  (balance: 0 lamports). Схоже на флейк холодного TLS/DNS у мережевому стеку
-  емулятора при першому https-запиті застосунку, а не на проблему web3.js чи MWA.
-- Обхід: ретрай запиту балансу (1–2 повтори) або попередній «warm-up» fetch.
-- Версії: @solana/web3.js 1.98.4, RN 0.81.5, Expo SDK 54, емулятор API 35.
-- Час: 2026-08-30 ~15:45–15:49, ~15 хв на діагностику.
-- Джерело: немає (у доках RN Networking та web3.js цей флейк не описаний).
+  After that warm-up the same Connect+getBalance succeeded (balance: 0 lamports).
+  Looks like a cold TLS/DNS flake in the emulator network stack on the app's first
+  https request, not a web3.js or MWA problem.
+- Workaround: retry the balance request once or twice, or issue a warm-up fetch first.
+- Versions: @solana/web3.js 1.98.4, RN 0.81.5, Expo SDK 54, emulator API 35.
+- Time: 2026-08-30 ~15:45–15:49, ~15 min of diagnosis.
+- Source: none (not described in RN Networking docs or web3.js docs).
 
-## Fast Refresh не підхопив зміну App.tsx
-- Крок: правка App.tsx при запущеному Metro (порт 8081, окремий процес).
-- Очікував: Fast Refresh оновить UI.
-- Отримав: UI не змінився; допоміг лише force-stop + холодний старт активності
-  (застосунок перезавантажив бандл із Metro).
-- Версії: Expo SDK 54, RN 0.81.5.
-- Час: 2026-08-30 15:47, ~2 хв.
-- Джерело: немає.
+## Fast Refresh did not pick up a change to App.tsx
+- Step: edited App.tsx with Metro running (port 8081, separate process).
+- Expected: Fast Refresh updates the UI.
+- Actual: the UI did not change; only a force-stop plus a cold start of the
+  activity helped (the app then reloaded the bundle from Metro).
+- Versions: Expo SDK 54, RN 0.81.5.
+- Time: 2026-08-30 15:47, ~2 min.
+- Source: none.
 
-## expo start у неінтерактивному режимі при зайнятому порту 8081
-- Крок: `npx expo start --port 8081`, коли Metro уже працював.
-- Очікував: повідомлення «port busy» і вихід або авто-вибір порту.
-- Отримав: інтерактивний промпт «Use port 8082 instead?» → у неінтерактивному
-  режимі exit code 1 («Skipping dev server»). Не блокер: наявний Metro на 8081
-  обслуговує проєкт (перевірка: GET /status → `packager-status:running`).
-- Версії: Expo SDK 54 (expo ~54.0.36).
-- Час: 2026-08-30 15:44, <1 хв.
-- Джерело: немає.
+## expo start in non-interactive mode with port 8081 already in use
+- Step: `npx expo start --port 8081` while Metro was already running.
+- Expected: a "port busy" message and either an exit or automatic port selection.
+- Actual: an interactive prompt "Use port 8082 instead?" → in non-interactive mode
+  this becomes exit code 1 ("Skipping dev server"). Not a blocker: the existing
+  Metro instance on 8081 serves the project (checked with GET /status →
+  `packager-status:running`).
+- Versions: Expo SDK 54 (expo ~54.0.36).
+- Time: 2026-08-30 15:44, <1 min.
+- Source: none.
 
 ---
 
-## Результат проби (2026-08-30)
-Повний ланцюжок на емуляторі пройдено: Connect → authorize у fakewallet (legacy)
-→ адреса → getBalance(devnet) = 0 lamports → signMessages → підпис отримано.
-Нотатки:
-- Статус «Verification failed» на екрані AUTHORIZE DAPP — очікувано: fakewallet
-  перевіряє Digital Asset Links для identity.uri (https://example.com їх не має);
-  авторизацію це не блокує.
-- ECONNREFUSED-ретраї `MobileWalletAdapterWebSocket` у logcat перед з'єднанням —
-  штатна поведінка local association (dapp пробує ws://127.0.0.1:<port>, доки
-  гаманець не підніме сервер), описано у спеці MWA:
+## Probe result (2026-08-30)
+The full chain works on the emulator: Connect → authorize in fakewallet (legacy)
+→ address → getBalance(devnet) = 0 lamports → signMessages → signature returned.
+
+Notes:
+- The "Verification failed" status on the AUTHORIZE DAPP screen is expected:
+  fakewallet checks Digital Asset Links for identity.uri, and https://example.com
+  has none. It does not block authorization.
+- ECONNREFUSED retries from `MobileWalletAdapterWebSocket` in logcat before the
+  connection is established are normal local association behaviour — the dapp
+  keeps trying ws://127.0.0.1:<port> until the wallet brings the server up.
+  Described in the MWA spec:
   https://solana-mobile.github.io/mobile-wallet-adapter/spec/spec.html
-- Адреса з `authorize` приходить у base64 → декодування через
-  `new PublicKey(Buffer.from(address, 'base64'))` працює коректно.
+- The address returned by `authorize` is base64, so decoding via
+  `new PublicKey(Buffer.from(address, 'base64'))` is the correct path.
